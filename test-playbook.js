@@ -4,11 +4,6 @@ $(document).ready(function() {
 
 function create() {
     console.log("ready");
-    let targetSvg = d3.select("#playbook")
-        .append("svg")
-        .attr("width", 1100)
-        .attr("height", 800)
-        .attr("style", "background-color: #1F1F1F; padding: 10px 10px 10px 10px;");
 
     let playbookData = {
         "header" : {
@@ -28,7 +23,7 @@ function create() {
                 "positionOrder": 1,
                 "positionRow": 1,
                 "hasChild" : true,
-                "isFinish" : true
+                "isFinish" : false
             },
             {
                 "id": "node2",
@@ -36,12 +31,13 @@ function create() {
                 "field" : "sourceIp",
                 "value" : "10.10.10.10",
                 "method" : "같음",
+                "result": "오탐",
                 "nodeSide" : true,
                 "parentNodeId" : "node1",
                 "positionOrder": 2,
                 "positionRow": 2,
                 "hasChild" : false,
-                "isFinish" : false
+                "isFinish" : true
             },
             {
                 "id": "node3",
@@ -62,6 +58,7 @@ function create() {
                 "field" : "sourceIp",
                 "value" : "10.10.10.10",
                 "method" : "같음",
+                "result": "오탐",
                 "nodeSide" : true,
                 "parentNodeId" : "node3",
                 "positionOrder": 4,
@@ -75,6 +72,7 @@ function create() {
                 "field" : "sourceIp",
                 "value" : "10.10.10.10",
                 "method" : "같음",
+                "result": "정탐",
                 "nodeSide" : false,
                 "parentNodeId" : "node3",
                 "positionOrder": 4,
@@ -84,21 +82,28 @@ function create() {
             }
         ]
     };
-    createNodes(targetSvg, playbookData);
+    createNodes('#playbook', playbookData);
 }
 
 function createNodes(parentElement, nodeData) {
-    console.log(nodeData);
+    let svg = d3.select(parentElement)
+        .append("svg")
+        .attr("width", 1100)
+        .attr("height", 800)
+        .attr('viewBox', '0 0 1500 1500')
+        .attr("style", "background-color: #1F1F1F; padding: 10px 10px 10px 10px;");
+        
     let headerNodeData = nodeData.header;
     let childrenNodeData = nodeData.nodes;
     let childrenNodeDataMaximumRow = Math.max(...childrenNodeData.map(e => e.positionRow));
     let finishedNodes = [];
+    let linePositions = [];
 
     // Default configurations
     var margin = {top: 20, right: 20, bottom: 30, left: 50},
-        center = {x : +parentElement.attr('width') / 2, y: +parentElement.attr('height') / 2},
-        width = +parentElement.attr('width') - margin.left - margin.right,
-        height = +parentElement.attr('height') - margin.top - margin.bottom;
+        center = {x : +svg.attr('width') / 2, y: +svg.attr('height') / 2},
+        width = +svg.attr('width') - margin.left - margin.right,
+        height = +svg.attr('height') - margin.top - margin.bottom;
     let nodeSize = {width: 200, height: 100, lineGap: 20};
     let position = {x: center.x - 100, y: center.y - 300, yGap: 150};
     let blueColor = "#304d8d";
@@ -123,50 +128,45 @@ function createNodes(parentElement, nodeData) {
         }
     });
 
-    console.log(finishedNodes);
     // Calculate node positions (x, y)
     childrenNodeData.forEach(e => {
-        let order = e.positionOrder;
         let row = e.positionRow;
         let positionX = 0;
         let positionY = 0;
+        let linePosition = { fromX: 0, toX: 0, fromY: 0, toY: 0 }
 
         // Fixed first node position
         if (e.positionOrder === 1) {
             positionX = position.x;
-            positionY = position.y + position.yGap;
+            positionY = position.y + position.yGap - 30;
         } else { 
-            // Child nodes
-            if (e.positionRow === 2) {
-                if (e.hasChild) {
-                    // Gap : variable value (Rows * 200)
-                    console.log('here');
-                    // positionX = e.nodeSide ? center.x - 350 - (childrenNodeDataMaximumRow * 200) : center.x + 150 + (childrenNodeDataMaximumRow * 200);
-                    positionX = e.nodeSide ? center.x - 350 - (childrenNodeDataMaximumRow * 100) : center.x + 150 + (childrenNodeDataMaximumRow * 100);
-                } else {
-                    // Gap : 300 - Fixed value
-                    positionX = e.nodeSide ? center.x - 350 : center.x + 150;
-                }
+            let parentNodeData = childrenNodeData.filter(d => d.id === e.parentNodeId)[0];
+            if (e.hasChild) {
+                positionX = e.nodeSide ? center.x - 300 - (childrenNodeDataMaximumRow * 100) : center.x + 100 + (childrenNodeDataMaximumRow * 100);
+                
             } else {
-                if (e.hasChild) {
-
-                } else {
-
-                }
-                let parentNodeData = childrenNodeData.filter(d => d.id === e.parentNodeId)[0];
-                // Gap : 50
-                positionX = e.nodeSide ? parentNodeData.positionX - 125 : parentNodeData.positionX + 125;
+                positionX = e.nodeSide ? parentNodeData.positionX - 250 : parentNodeData.positionX + 250;
             }
-            positionY = position.y + (row * position.yGap);
+            positionY = position.y + (row * position.yGap) - 30;
+            
+            // Set line position
+            linePosition.fromX = parentNodeData.positionX + 100;
+            linePosition.fromY = parentNodeData.positionY + 100;
+            linePosition.toX = positionX + 100;
+            linePosition.toY = positionY;
+            linePositions.push(linePosition);
         }
         e.positionX = positionX;
         e.positionY = positionY;
     });
-    // console.log(childrenNodeData);
 
+    // Append main group
+    let g = svg
+        .append("g")
+        .attr("class", "node");
+    
     // Define gradient configuration
-    let g = parentElement.append("g").attr("class", "node");
-    const gradient = parentElement.append("defs")
+    const gradient = svg.append("defs")
         .append("linearGradient")
         .attr("id", "gradient-border")
         .attr("x1", "0%")
@@ -184,7 +184,8 @@ function createNodes(parentElement, nodeData) {
         .attr("style", `stop-color: ${grayColor}; stop-opacity: 0.6;`);
 
     // Draw the playbook header node
-    let headerNode = g.append('g');
+    let headerNode = g.append('g')
+        .attr('node-id', 'header-node');
     headerNode.append('rect')
         .attr("x", position.x)
         .attr("y", position.y)
@@ -281,7 +282,10 @@ function createNodes(parentElement, nodeData) {
                 .attr("rx", 8)
                 .attr("stroke", "url(#gradient-border)")
                 .attr("stroke-width", 2)
-                .attr("style", "cursor: pointer;");
+                .attr("style", "cursor: pointer;")
+                .on('click', function() {
+                    alert('test');
+                });
             targetNode.append('svg:image')
                 .attr('x', function(d) {
                     return d.positionX - 23;
@@ -294,8 +298,9 @@ function createNodes(parentElement, nodeData) {
                 .attr('xlink:href', 'img/node_clear_01.png')
                 .attr("style", "cursor: pointer;");
 
+            // Draw lines and write text in a node
             for (let i = 1; i <= 4; i++) {
-                // Draw lines in a node
+                // Draw line
                 targetNode.append("line")
                     .style("stroke", "#fff")
                     .style("stroke-opacity", 1.0)
@@ -329,7 +334,7 @@ function createNodes(parentElement, nodeData) {
                         return d.positionY + nodeSize.lineGap * i + 5;
                     });
 
-                // Write text in a node
+                // Write keys
                 targetNode.append("text")
                     .attr('x', function(d) {
                         return d.positionX + 15;
@@ -354,6 +359,7 @@ function createNodes(parentElement, nodeData) {
                         }
                     });
 
+                // Write values
                 targetNode.append("text")
                     .attr('x', function(d) {
                         return d.positionX + 90;
@@ -384,8 +390,9 @@ function createNodes(parentElement, nodeData) {
     g.selectAll('.finish-node')
         .data(finishedNodes)
         .join((enter) => {
-            let targetNode = enter.append('g');
-            targetNode
+            let targetTrueNode = enter.append('g');
+            // True node
+            targetTrueNode
                 .append('rect')
                 .attr('node-name', function(d) {
                     return d.name;
@@ -393,10 +400,10 @@ function createNodes(parentElement, nodeData) {
                 .attr('node-true', '')
                 .attr('node-false', '')
                 .attr("x", function(d) {
-                    return d.positionX;
+                    return d.positionX - 125;
                 })
                 .attr("y", function(d) {
-                    return d.positionY;
+                    return d.positionY + position.yGap;
                 })
                 .attr("width", nodeSize.width)
                 .attr("height", nodeSize.height)
@@ -406,5 +413,91 @@ function createNodes(parentElement, nodeData) {
                 .attr("stroke", "url(#gradient-border)")
                 .attr("stroke-width", 2)
                 .attr("style", "cursor: pointer;");
+            targetTrueNode
+                .append('text')
+                .attr('x', function(d) {
+                    return d.positionX - 125 + 100;
+                })
+                .attr('y', function(d) {
+                    return d.positionY + position.yGap + 55;
+                })
+                .attr('text-anchor', 'middle')
+                .attr("font-size", "15px")
+                .style("fill", "#595959")
+                .text(function(d) {
+                    return d.result;
+                });
+            
+            // Flase node
+            let targetFalseNode = enter.append('g');
+            targetFalseNode
+                .append('rect')
+                .attr('node-name', function(d) {
+                    return d.name;
+                })
+                .attr('node-true', '')
+                .attr('node-false', '')
+                .attr("x", function(d) {
+                    return d.positionX + 125;
+                })
+                .attr("y", function(d) {
+                    return d.positionY + position.yGap;
+                })
+                .attr("width", nodeSize.width)
+                .attr("height", nodeSize.height)
+                .attr("fill", `${grayColor}`)
+                .attr("fill-opacity", 0.6)
+                .attr("rx", 8)
+                .attr("stroke", "url(#gradient-border)")
+                .attr("stroke-width", 2)
+                .attr("style", "cursor: pointer;");
+            targetFalseNode
+                .append('text')
+                .attr('x', function(d) {
+                    return d.positionX + 125 + 100;
+                })
+                .attr('y', function(d) {
+                    return d.positionY + position.yGap + 55;
+                })
+                .attr('text-anchor', 'middle')
+                .attr("font-size", "15px")
+                .style("fill", "#595959")
+                .text(function(d) {
+                    return '분석필요';
+                });
+        });
+
+    finishedNodes.forEach(e => {
+        // Set line position
+        let linePositionForTrue = { fromX: 0, toX: 0, fromY: 0, toY: 0 }
+        linePositionForTrue.fromX = e.positionX + 100;
+        linePositionForTrue.fromY = e.positionY + 100;
+        linePositionForTrue.toX = e.positionX - 30;
+        linePositionForTrue.toY = e.positionY + 150;
+
+        let linePositionForFalse = { node: '', fromX: 0, toX: 0, fromY: 0, toY: 0 }
+        linePositionForFalse.fromX = e.positionX + 100;
+        linePositionForFalse.fromY = e.positionY + 100;
+        linePositionForFalse.toX = e.positionX + 230;
+        linePositionForFalse.toY = e.positionY + 150
+
+        linePositions.push(linePositionForTrue);
+        linePositions.push(linePositionForFalse);
     });
+
+    // Draw line header to first child
+    g.append('path')
+        .attr('d', `M ${position.x + 100} ${position.y + 80} L ${position.x + 100} ${position.y + position.yGap - 30}`)
+        .attr('stroke', blueColor)
+        .attr('stroke-width', 3);
+    g.selectAll('.path')
+        .data(linePositions)
+        .enter()
+        .append('path')
+        .attr('d', function(d) {
+            return `M ${d.fromX} ${d.fromY} L ${d.toX} ${d.toY}`
+        })
+        .attr('stroke', blueColor)
+        .attr('stroke-width', 3);
 }
+
